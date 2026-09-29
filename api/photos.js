@@ -1,5 +1,5 @@
 import { list, put, del } from '@vercel/blob';
-function okPin(req){const expected=process.env.CATERINE_ADMIN_PIN;return !!expected && req.headers['x-admin-pin']===expected}
+function okAdmin(req){const expected=process.env.CATERINE_ADMIN_KEY;return !!expected && req.headers['x-admin-key']===expected}
 export default async function handler(req,res){
   try{
     if(req.method==='GET'){
@@ -7,7 +7,7 @@ export default async function handler(req,res){
       const photos=(r.blobs||[]).sort((a,b)=>new Date(b.uploadedAt)-new Date(a.uploadedAt)).map(b=>({url:b.url,pathname:b.pathname,uploadedAt:b.uploadedAt}));
       return res.status(200).json({photos});
     }
-    if(!okPin(req)) return res.status(401).json({error:'PIN incorrecto o no configurado.'});
+    if(!okAdmin(req)) return res.status(401).json({error:'Acceso de administración no autorizado.'});
     if(req.method==='POST'){
       const body=typeof req.body==='string'?JSON.parse(req.body):req.body||{};
       const {name='foto.jpg',dataUrl=''}=body;
