@@ -1,0 +1,19 @@
+{
+  "name": "Caterine Magic Nails",
+  "short_name": "Caterine Nails",
+  "description": "Panel privado de Caterine Magic Nails para administrar fotos y agenda.",
+  "lang": "es",
+  "start_url": "/caterine-panel.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fbf6f4",
+  "theme_color": "#fbf6f4",
+  "icons": [
+    {
+      "src": "/caterine-app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
