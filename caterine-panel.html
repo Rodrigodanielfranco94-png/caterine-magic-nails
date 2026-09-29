@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#fbf6f4">
-<title>Panel de Caterine | Caterine Magic Nails</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Caterine Nails">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/caterine-app-icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/caterine-app-icon.svg">
+<title>Caterine Nails | App</title>
 <style>
 :root{--ink:#2d2126;--muted:#786b70;--rose:#c24f7a;--cream:#fbf6f4;--line:#eadde2;--green:#22a85a}
 *{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -20,6 +27,7 @@ button{border:0;border-radius:999px;padding:14px 20px;font-weight:900;font-size:
 .rose{background:var(--rose);color:#fff}.white{background:#fff;border:1px solid var(--line);color:var(--ink)}
 .status{margin-top:14px;font-size:14px}.gallery{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:18px}
 .gallery img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px}.notice{padding:14px;border-radius:14px;background:#fff4f6;border:1px solid var(--line)}
+.install{display:flex;justify-content:space-between;align-items:center;gap:14px;background:linear-gradient(135deg,#2d2126,#4a323b);color:#fff}.install p{color:#eadde2;margin:5px 0 0}.install button{background:#fff;color:var(--ink);white-space:nowrap}@media(max-width:560px){.install{align-items:flex-start;flex-direction:column}}
 </style>
 </head>
 <body>
@@ -27,7 +35,11 @@ button{border:0;border-radius:999px;padding:14px 20px;font-weight:900;font-size:
 <main><div class="wrap">
 <div class="eyebrow">Administración</div>
 <h1>Fotos y agenda</h1>
-<p>Desde aquí Caterine puede subir nuevas fotos y guardar su enlace de Google Calendar. Guarda esta página en Favoritos para entrar directamente cuando lo necesites.</p>
+<p>Desde aquí Caterine puede subir nuevas fotos y guardar su enlace de Google Calendar.</p>
+<div id="installCard" class="card install">
+  <div><strong>App Caterine Magic Nails</strong><p>Instálala en el teléfono para abrir este panel directamente como una app.</p></div>
+  <button type="button" onclick="installApp()">Instalar app</button>
+</div>
 
 <div class="card">
 <h2>Subir fotos</h2>
@@ -53,6 +65,16 @@ function fileToCompressedDataUrl(file){return new Promise((resolve,reject)=>{con
 async function refreshPhotos(){const g=document.getElementById('uploadedGallery');try{const d=await apiJson('/api/photos');g.innerHTML=(d.photos||[]).map(p=>'<img src="'+p.url+'" alt="Trabajo de Caterine" loading="lazy">').join('')}catch(e){g.innerHTML=''}}
 async function uploadPhotos(){const files=[...document.getElementById('photoInput').files];if(!files.length)return status('photoStatus','Selecciona al menos una foto.',false);status('photoStatus','Subiendo fotos…');try{for(const f of files){const dataUrl=await fileToCompressedDataUrl(f);await apiJson('/api/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,dataUrl})})}status('photoStatus','Fotos publicadas correctamente.');document.getElementById('photoInput').value='';await refreshPhotos()}catch(e){status('photoStatus',e.message,false)}}
 async function saveCalendar(){const bookingUrl=normalizeCalendar(document.getElementById('calendarCode').value);if(!/^https?:\/\//i.test(bookingUrl))return status('calendarStatus','Pega un enlace o código válido de Google Calendar.',false);status('calendarStatus','Guardando agenda…');try{await apiJson('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingUrl})});status('calendarStatus','Agenda guardada correctamente.')}catch(e){status('calendarStatus',e.message,false)}}
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e});
+function isStandalone(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}
+async function installApp(){
+  if(isStandalone()){alert('La app ya está instalada en este teléfono.');return}
+  if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;return}
+  alert('En iPhone: toca el botón Compartir de Safari, elige “Añadir a pantalla de inicio” y después toca “Añadir”.');
+}
+if(isStandalone()){const card=document.getElementById('installCard');if(card)card.style.display='none'}
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))}
 refreshPhotos();
 </script>
 </body></html>
