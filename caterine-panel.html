@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#fbf6f4">
+<title>Panel de Caterine | Caterine Magic Nails</title>
+<style>
+:root{--ink:#2d2126;--muted:#786b70;--rose:#c24f7a;--cream:#fbf6f4;--line:#eadde2;--green:#22a85a}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{width:min(760px,calc(100% - 28px));margin:auto}header{padding:24px 0;border-bottom:1px solid var(--line);background:#fff}
+.brand{font:italic 28px Georgia,serif}.brand small{display:block;font:10px system-ui;letter-spacing:.2em;margin-top:4px}
+main{padding:36px 0 80px}.eyebrow{color:var(--rose);font-weight:900;letter-spacing:.16em;text-transform:uppercase;font-size:12px}
+h1{font-family:Georgia,serif;font-size:clamp(42px,8vw,68px);font-weight:500;line-height:1;margin:12px 0 14px}
+p{color:var(--muted);line-height:1.6}.card{background:#fff;border:1px solid var(--line);border-radius:26px;padding:22px;margin-top:24px}
+.field{display:flex;flex-direction:column;gap:8px;margin-top:18px}.field label{font-size:12px;font-weight:900;color:var(--muted)}
+input[type=file],textarea{width:100%;border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff;font:inherit}
+textarea{min-height:140px}.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+button{border:0;border-radius:999px;padding:14px 20px;font-weight:900;font-size:16px;cursor:pointer}
+.rose{background:var(--rose);color:#fff}.white{background:#fff;border:1px solid var(--line);color:var(--ink)}
+.status{margin-top:14px;font-size:14px}.gallery{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:18px}
+.gallery img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px}.notice{padding:14px;border-radius:14px;background:#fff4f6;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="brand">Caterine Magic Nails<small>PANEL PRIVADO</small></div></div></header>
+<main><div class="wrap">
+<div class="eyebrow">Administración</div>
+<h1>Fotos y agenda</h1>
+<p>Desde aquí Caterine puede subir nuevas fotos y guardar su enlace de Google Calendar. Guarda esta página en Favoritos para no tener que escribir ninguna clave.</p>
+<div id="accessNotice" class="notice" style="display:none">Este enlace no contiene la clave privada. Abre el enlace completo que te compartieron.</div>
+
+<div class="card">
+<h2>Subir fotos</h2>
+<div class="field"><label>SELECCIONA UNA O VARIAS FOTOS</label><input id="photoInput" type="file" accept="image/*" multiple></div>
+<div class="row"><button class="rose" type="button" onclick="uploadPhotos()">Subir fotos</button><button class="white" type="button" onclick="refreshPhotos()">Actualizar galería</button></div>
+<div id="photoStatus" class="status"></div>
+<div id="uploadedGallery" class="gallery"></div>
+</div>
+
+<div class="card">
+<h2>Google Calendar</h2>
+<p>Pega el enlace de reservas o el código de inserción de Google Calendar.</p>
+<div class="field"><textarea id="calendarCode" placeholder="Pega aquí el enlace de reservas de Google Calendar"></textarea></div>
+<div class="row"><button class="rose" type="button" onclick="saveCalendar()">Guardar agenda</button></div>
+<div id="calendarStatus" class="status"></div>
+</div>
+</div></main>
+<script>
+const ADMIN_KEY=new URLSearchParams(location.search).get('key')||'';
+if(!ADMIN_KEY)document.getElementById('accessNotice').style.display='block';
+async function apiJson(url,opts){const r=await fetch(url,opts);let d={};try{d=await r.json()}catch(e){}if(!r.ok)throw new Error(d.error||'No se pudo completar la acción');return d}
+function status(id,t,ok=true){const el=document.getElementById(id);el.textContent=t;el.style.color=ok?'#246b3b':'#9b2f3d'}
+function normalizeCalendar(v){v=(v||'').trim();const m=v.match(/src=["']([^"']+)["']/i);return m?m[1]:v}
+function fileToCompressedDataUrl(file){return new Promise((resolve,reject)=>{const img=new Image(),r=new FileReader();r.onerror=reject;r.onload=()=>{img.onload=()=>{let w=img.width,h=img.height,max=1400;if(w>max||h>max){const sc=Math.min(max/w,max/h);w=Math.round(w*sc);h=Math.round(h*sc)}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);resolve(c.toDataURL('image/jpeg',.82))};img.onerror=reject;img.src=r.result};r.readAsDataURL(file)})}
+async function refreshPhotos(){const g=document.getElementById('uploadedGallery');try{const d=await apiJson('/api/photos');g.innerHTML=(d.photos||[]).map(p=>'<img src="'+p.url+'" alt="Trabajo de Caterine" loading="lazy">').join('')}catch(e){g.innerHTML=''}}
+async function uploadPhotos(){if(!ADMIN_KEY)return status('photoStatus','Abre el enlace privado completo de Caterine.',false);const files=[...document.getElementById('photoInput').files];if(!files.length)return status('photoStatus','Selecciona al menos una foto.',false);status('photoStatus','Subiendo fotos…');try{for(const f of files){const dataUrl=await fileToCompressedDataUrl(f);await apiJson('/api/photos',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY},body:JSON.stringify({name:f.name,dataUrl})})}status('photoStatus','Fotos publicadas correctamente.');document.getElementById('photoInput').value='';await refreshPhotos()}catch(e){status('photoStatus',e.message,false)}}
+async function saveCalendar(){if(!ADMIN_KEY)return status('calendarStatus','Abre el enlace privado completo de Caterine.',false);const bookingUrl=normalizeCalendar(document.getElementById('calendarCode').value);if(!/^https?:\/\//i.test(bookingUrl))return status('calendarStatus','Pega un enlace o código válido de Google Calendar.',false);status('calendarStatus','Guardando agenda…');try{await apiJson('/api/settings',{method:'POST',headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY},body:JSON.stringify({bookingUrl})});status('calendarStatus','Agenda guardada correctamente.')}catch(e){status('calendarStatus',e.message,false)}}
+refreshPhotos();
+</script>
+</body></html>
