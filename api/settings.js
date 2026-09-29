@@ -1,5 +1,4 @@
 import { list, put } from '@vercel/blob';
-function okAdmin(req){const expected=process.env.CATERINE_ADMIN_KEY;return !!expected && req.headers['x-admin-key']===expected}
 export default async function handler(req,res){
   try{
     if(req.method==='GET'){
@@ -10,7 +9,6 @@ export default async function handler(req,res){
       return res.status(200).json(await rr.json());
     }
     if(req.method==='POST'){
-      if(!okAdmin(req)) return res.status(401).json({error:'Acceso de administración no autorizado.'});
       const body=typeof req.body==='string'?JSON.parse(req.body):req.body||{};
       const bookingUrl=(body.bookingUrl||'').trim();
       if(!/^https?:\/\//i.test(bookingUrl)) return res.status(400).json({error:'Enlace de calendario inválido.'});
