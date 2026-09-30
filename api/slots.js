@@ -1,4 +1,5 @@
 import { list, put, del } from '@vercel/blob';
+import { sendPush } from '../lib/push.js';
 
 const OPEN_HOUR = 7;
 const CLOSE_HOUR = 18;
@@ -79,6 +80,7 @@ export default async function handler(req,res){
             contentType:'application/json',
             cacheControlMaxAge:0
           });
+          await sendPush({title:'Nueva reserva',body:`${name} reservó ${date} a las ${time}${service ? ' · '+service : ''}`,tag:'booking-'+date+'-'+time,data:{url:'/caterine-panel.html'}});
           return res.status(201).json({ok:true,booking:record});
         }catch(e){
           if(conflictError(e)) return res.status(409).json({error:'Ese horario acaba de ser ocupado. Elige otro.'});
@@ -111,7 +113,11 @@ export default async function handler(req,res){
       const r=await list({prefix:path,limit:10});
       const b=(r.blobs||[]).find(x=>x.pathname===path);
       if(!b) return res.status(404).json({error:'Ese horario ya estaba libre.'});
+      const existing=await readBlob(b);
       await del(b.url);
+      if(existing?.type==='booking'){
+        await sendPush({title:'Cita cancelada',body:`${existing.name||'Una clienta'} canceló ${date} a las ${time}`,tag:'cancel-'+date+'-'+time,data:{url:'/caterine-panel.html'}});
+      }
       return res.status(200).json({ok:true});
     }
 
