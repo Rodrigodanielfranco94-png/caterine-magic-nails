@@ -197,10 +197,27 @@ function renderAppointments(){
 }
 function changeMonth(n){viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+n,1);selectedDate=ymd(new Date(viewMonth.getFullYear(),viewMonth.getMonth(),1));loadMonth()}
 
+function urlBase64ToUint8Array(base64String){
+  const padding='='.repeat((4-base64String.length%4)%4);
+  const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(base64);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
 async function enableNotifications(){
-  if(!('Notification' in window)) return status('notifyStatus','Este dispositivo no admite notificaciones web.',false);
-  const p=await Notification.requestPermission();
-  status('notifyStatus',p==='granted'?'Notificaciones activadas en esta app.':'No se activaron las notificaciones.',p==='granted');
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){
+    return status('notifyStatus','Abre la app desde el icono de Caterine en la pantalla de inicio. En Safari privado las notificaciones no funcionan.',false);
+  }
+  try{
+    const p=await Notification.requestPermission();
+    if(p!=='granted') return status('notifyStatus','No se activaron las notificaciones. Puedes permitirlas desde Ajustes del iPhone.',false);
+    const reg=await navigator.serviceWorker.ready;
+    const cfg=await apiJson('/api/push');
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub){
+      sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(cfg.publicKey)});
+    }
+    await apiJson('/api/push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:sub})});
+    status('notifyStatus','Notificaciones activadas. Caterine recibirá avisos de reservas y cancelaciones.');
+  }catch(e){status('notifyStatus',e.message||'No se pudieron activar las notificaciones.',false)}
 }
 async function checkNotifications(initial){
   const bookings=monthSlots.filter(s=>s.type==='booking'&&s.createdAt).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
