@@ -73,10 +73,15 @@ export default async function handler(req,res){
         const name=(body.name||'').trim().slice(0,80);
         const phone=(body.phone||'').trim().slice(0,40);
         const service=(body.service||'').trim().slice(0,80);
+        const location=body.location==='home'?'home':'studio';
+        const address=(body.address||'').trim().slice(0,220);
+        const allowedFrequencies=new Set(['once','weekly','biweekly','three_weeks','monthly']);
+        const frequency=allowedFrequencies.has(body.frequency)?body.frequency:'once';
         const notes=(body.notes||'').trim().slice(0,500);
         if(!name) return res.status(400).json({error:'Escribe tu nombre.'});
         if(!phone) return res.status(400).json({error:'Escribe tu teléfono.'});
-        const record={type:'booking',date,time,name,phone,service,notes,createdAt:now,status:'confirmed'};
+        if(location==='home'&&!address) return res.status(400).json({error:'Escribe la dirección para el servicio a domicilio.'});
+        const record={type:'booking',date,time,name,phone,service,location,address,frequency,notes,createdAt:now,status:'confirmed'};
         try{
           await put(path,JSON.stringify(record),{
             access:'public',
@@ -85,7 +90,9 @@ export default async function handler(req,res){
             contentType:'application/json',
             cacheControlMaxAge:0
           });
-          await writeNotification({kind:'booking',title:'Nueva reserva',message:`${name} reservó ${date} a las ${time}${service ? ' · '+service : ''}`,date,time,name,phone,service,createdAt:now});
+          const locationText=location==='home' ? ' · Domicilio: '+address : ' · En el lugar de Caterine';
+          const frequencyText={once:'Solo esta cita',weekly:'Semanal',biweekly:'Quincenal',three_weeks:'Cada 3 semanas',monthly:'Mensual'}[frequency];
+          await writeNotification({kind:'booking',title:'Nueva reserva',message:name+' reservó '+date+' a las '+time+(service ? ' · '+service : '')+locationText+' · '+frequencyText,date,time,name,phone,service,location,address,frequency,createdAt:now});
           return res.status(201).json({ok:true,booking:record});
         }catch(e){
           if(conflictError(e)) return res.status(409).json({error:'Ese horario acaba de ser ocupado. Elige otro.'});
