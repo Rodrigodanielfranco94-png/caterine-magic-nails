@@ -1,5 +1,4 @@
 import { list, put, del } from '@vercel/blob';
-import { sendPush } from '../lib/push.js';
 
 const OPEN_HOUR = 7;
 const CLOSE_HOUR = 18;
@@ -16,6 +15,12 @@ function validTime(v){
   return m===0 && h>=OPEN_HOUR && h<CLOSE_HOUR;
 }
 function pathnameFor(date,time){ return `caterine/slots/${date}/${time.replace(':','-')}.json`; }
+function notificationPath(kind,date,time){return `caterine/notifications/${Date.now()}-${kind}-${date}-${time.replace(':','-')}.json`;}
+async function writeNotification(record){
+  await put(notificationPath(record.kind,record.date,record.time),JSON.stringify(record),{
+    access:'public',addRandomSuffix:true,contentType:'application/json',cacheControlMaxAge:0
+  });
+}
 async function readBlob(b){
   try{
     const r=await fetch(b.url,{cache:'no-store'});
@@ -80,7 +85,7 @@ export default async function handler(req,res){
             contentType:'application/json',
             cacheControlMaxAge:0
           });
-          await sendPush({title:'Nueva reserva',body:`${name} reservó ${date} a las ${time}${service ? ' · '+service : ''}`,tag:'booking-'+date+'-'+time,data:{url:'/caterine-panel.html'}});
+          await writeNotification({kind:'booking',title:'Nueva reserva',message:`${name} reservó ${date} a las ${time}${service ? ' · '+service : ''}`,date,time,name,phone,service,createdAt:now});
           return res.status(201).json({ok:true,booking:record});
         }catch(e){
           if(conflictError(e)) return res.status(409).json({error:'Ese horario acaba de ser ocupado. Elige otro.'});
@@ -116,7 +121,7 @@ export default async function handler(req,res){
       const existing=await readBlob(b);
       await del(b.url);
       if(existing?.type==='booking'){
-        await sendPush({title:'Cita cancelada',body:`${existing.name||'Una clienta'} canceló ${date} a las ${time}`,tag:'cancel-'+date+'-'+time,data:{url:'/caterine-panel.html'}});
+        await writeNotification({kind:'cancellation',title:'Cita cancelada',message:`${existing.name||'Una clienta'} canceló ${date} a las ${time}`,date,time,name:existing.name||'',phone:existing.phone||'',service:existing.service||'',createdAt:new Date().toISOString()});
       }
       return res.status(200).json({ok:true});
     }
