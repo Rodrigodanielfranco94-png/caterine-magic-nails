@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fbf6f4">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -13,32 +13,73 @@
 <link rel="apple-touch-icon" href="/caterine-app-icon.svg">
 <title>Caterine Nails | App</title>
 <style>
-:root{--ink:#2d2126;--muted:#786b70;--rose:#c24f7a;--cream:#fbf6f4;--line:#eadde2;--green:#22a85a}
+:root{--ink:#2d2126;--muted:#786b70;--rose:#c24f7a;--cream:#fbf6f4;--line:#eadde2;--green:#22a85a;--soft:#fff4f7;--gold:#efb43d}
 *{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .wrap{width:min(760px,calc(100% - 28px));margin:auto}header{padding:24px 0;border-bottom:1px solid var(--line);background:#fff}
 .brand{font:italic 28px Georgia,serif}.brand small{display:block;font:10px system-ui;letter-spacing:.2em;margin-top:4px}
-main{padding:36px 0 80px}.eyebrow{color:var(--rose);font-weight:900;letter-spacing:.16em;text-transform:uppercase;font-size:12px}
-h1{font-family:Georgia,serif;font-size:clamp(42px,8vw,68px);font-weight:500;line-height:1;margin:12px 0 14px}
+main{padding:36px 0 90px}.eyebrow{color:var(--rose);font-weight:900;letter-spacing:.16em;text-transform:uppercase;font-size:12px}
+h1{font-family:Georgia,serif;font-size:clamp(42px,8vw,68px);font-weight:500;line-height:1;margin:12px 0 14px}h2{font-size:28px;margin:4px 0 10px}
 p{color:var(--muted);line-height:1.6}.card{background:#fff;border:1px solid var(--line);border-radius:26px;padding:22px;margin-top:24px}
 .field{display:flex;flex-direction:column;gap:8px;margin-top:18px}.field label{font-size:12px;font-weight:900;color:var(--muted)}
-input[type=file],textarea{width:100%;border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff;font:inherit}
-textarea{min-height:140px}.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+input[type=file],textarea,input,select{width:100%;border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff;font:inherit}
+textarea{min-height:120px}.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
 button{border:0;border-radius:999px;padding:14px 20px;font-weight:900;font-size:16px;cursor:pointer}
 .rose{background:var(--rose);color:#fff}.white{background:#fff;border:1px solid var(--line);color:var(--ink)}
 .status{margin-top:14px;font-size:14px}.gallery{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:18px}
-.gallery img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px}.notice{padding:14px;border-radius:14px;background:#fff4f6;border:1px solid var(--line)}
-.install{display:flex;justify-content:space-between;align-items:center;gap:14px;background:linear-gradient(135deg,#2d2126,#4a323b);color:#fff}.install p{color:#eadde2;margin:5px 0 0}.install button{background:#fff;color:var(--ink);white-space:nowrap}@media(max-width:560px){.install{align-items:flex-start;flex-direction:column}}
+.gallery img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px}
+.monthTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 12px}.monthTop strong{font-size:18px}.monthTop button{padding:10px 14px}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}.dow{text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:7px 0}
+.day{min-height:58px;border:1px solid var(--line);background:#fff;border-radius:14px;padding:7px 3px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;color:var(--ink)}
+.day.muted{opacity:.25}.day.selected{outline:3px solid #f1bfd0;background:#fff8fa}.day .count{font-size:10px;color:var(--muted);font-weight:700;margin-top:3px}.day.past{opacity:.28;pointer-events:none}
+.slots{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:14px}.slot{border-radius:15px;padding:13px;text-align:left;border:1px solid var(--line);background:#fff}
+.slot.available{background:#f4fbf6;border-color:#cae8d2}.slot.booked{background:#fff0f5;border-color:#efb9cc}.slot.blocked{background:#f1eef0;color:#75676d}.slot small{display:block;margin-top:4px;color:var(--muted);font-weight:600}
+.appts{display:flex;flex-direction:column;gap:10px;margin-top:14px}.appt{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff}.appt strong{display:block}.appt small{color:var(--muted)}
+.badge{display:inline-flex;min-width:24px;height:24px;border-radius:999px;align-items:center;justify-content:center;background:var(--rose);color:#fff;font-size:12px;padding:0 7px;margin-left:7px}
+.noticeBar{background:#fff5f8;border:1px solid #f0cbd7;border-radius:16px;padding:14px;margin-top:12px;display:none}.noticeBar.show{display:block}
+details summary{font-weight:900;cursor:pointer}
+.install{display:flex;justify-content:space-between;align-items:center;gap:14px;background:linear-gradient(135deg,#2d2126,#4a323b);color:#fff}.install p{color:#eadde2;margin:5px 0 0}.install button{background:#fff;color:var(--ink);white-space:nowrap}
+@media(max-width:560px){.install{align-items:flex-start;flex-direction:column}.slots{grid-template-columns:1fr}.day{min-height:52px;font-size:13px}}
 </style>
 </head>
 <body>
 <header><div class="wrap"><div class="brand">Caterine Magic Nails<small>PANEL PRIVADO</small></div></div></header>
 <main><div class="wrap">
 <div class="eyebrow">Administración</div>
-<h1>Fotos y agenda</h1>
-<p>Desde aquí Caterine puede subir nuevas fotos y guardar su enlace de Google Calendar.</p>
+<h1>Agenda y fotos</h1>
+<p>Desde esta app Caterine puede manejar su disponibilidad, ver nuevas citas y subir fotos.</p>
+
 <div id="installCard" class="card install">
   <div><strong>App Caterine Magic Nails</strong><p>Instálala en el teléfono para abrir este panel directamente como una app.</p></div>
   <button type="button" onclick="installApp()">Instalar app</button>
+</div>
+
+<div class="card">
+  <div class="eyebrow">Agenda</div>
+  <h2>Citas y disponibilidad <span id="newBadge" class="badge" style="display:none">0</span></h2>
+  <p>Toca un horario libre para bloquearlo. Los horarios reservados por clientes aparecen automáticamente aquí.</p>
+  <div class="row">
+    <button class="rose" type="button" onclick="enableNotifications()">Activar notificaciones</button>
+    <button class="white" type="button" onclick="loadMonth()">Actualizar</button>
+  </div>
+  <div id="notifyStatus" class="status"></div>
+  <div id="newNotice" class="noticeBar"></div>
+
+  <div class="monthTop">
+    <button class="white" type="button" onclick="changeMonth(-1)">‹</button>
+    <strong id="monthLabel"></strong>
+    <button class="white" type="button" onclick="changeMonth(1)">›</button>
+  </div>
+  <div class="week">
+    <div class="dow">D</div><div class="dow">L</div><div class="dow">M</div><div class="dow">X</div><div class="dow">J</div><div class="dow">V</div><div class="dow">S</div>
+  </div>
+  <div id="monthGrid" class="week"></div>
+
+  <div id="selectedTitle" style="font-weight:900;margin-top:20px"></div>
+  <div id="slotGrid" class="slots"></div>
+  <div id="agendaStatus" class="status"></div>
+
+  <h3 style="margin:26px 0 8px">Citas de este mes</h3>
+  <div id="appointments" class="appts"></div>
 </div>
 
 <div class="card">
@@ -50,31 +91,147 @@ button{border:0;border-radius:999px;padding:14px 20px;font-weight:900;font-size:
 </div>
 
 <div class="card">
-<h2>Google Calendar</h2>
-<p>Pega el enlace de reservas o el código de inserción de Google Calendar.</p>
+<details>
+<summary>Google Calendar (opcional)</summary>
+<p>Más adelante podemos conectar también la agenda de Google de Caterine. El calendario propio de la web ya funciona sin esto.</p>
 <div class="field"><textarea id="calendarCode" placeholder="Pega aquí el enlace de reservas de Google Calendar"></textarea></div>
-<div class="row"><button class="rose" type="button" onclick="saveCalendar()">Guardar agenda</button></div>
+<div class="row"><button class="rose" type="button" onclick="saveCalendar()">Guardar Google Calendar</button></div>
 <div id="calendarStatus" class="status"></div>
+</details>
 </div>
 </div></main>
 <script>
 async function apiJson(url,opts){const r=await fetch(url,opts);let d={};try{d=await r.json()}catch(e){}if(!r.ok)throw new Error(d.error||'No se pudo completar la acción');return d}
-function status(id,t,ok=true){const el=document.getElementById(id);el.textContent=t;el.style.color=ok?'#246b3b':'#9b2f3d'}
+function status(id,t,ok=true){const el=document.getElementById(id);if(!el)return;el.textContent=t;el.style.color=ok?'#246b3b':'#9b2f3d'}
+function pad(n){return String(n).padStart(2,'0')}
+function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function hmLabel(t){const [h,m]=t.split(':').map(Number);return new Date(2000,0,1,h,m).toLocaleTimeString('es-US',{hour:'numeric',minute:'2-digit'})}
+function monthKey(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)}
+function monthName(d){return d.toLocaleDateString('es-US',{month:'long',year:'numeric'})}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+let viewMonth=new Date(); viewMonth.setDate(1);
+let selectedDate=ymd(new Date());
+let monthSlots=[];
+
+async function loadMonth(){
+  status('agendaStatus','Actualizando agenda…');
+  try{
+    const d=await apiJson('/api/slots?month='+monthKey(viewMonth)+'&_='+Date.now());
+    monthSlots=d.slots||[];
+    renderCalendar();
+    renderAppointments();
+    await checkNotifications(false);
+    status('agendaStatus','Agenda actualizada.');
+  }catch(e){status('agendaStatus',e.message,false)}
+}
+function renderCalendar(){
+  document.getElementById('monthLabel').textContent=monthName(viewMonth);
+  const grid=document.getElementById('monthGrid'); grid.innerHTML='';
+  const y=viewMonth.getFullYear(),m=viewMonth.getMonth();
+  const first=new Date(y,m,1), start=first.getDay(), days=new Date(y,m+1,0).getDate();
+  const today=ymd(new Date());
+  for(let i=0;i<start;i++){const x=document.createElement('div');x.className='day muted';grid.appendChild(x)}
+  for(let day=1;day<=days;day++){
+    const date=ymd(new Date(y,m,day));
+    const taken=monthSlots.filter(s=>s.date===date).length;
+    const available=Math.max(0,11-taken);
+    const b=document.createElement('button');
+    b.className='day'+(date===selectedDate?' selected':'')+(date<today?' past':'');
+    b.innerHTML='<span>'+day+'</span><span class="count">'+available+' libres</span>';
+    b.onclick=()=>{selectedDate=date;renderCalendar();renderSlots()};
+    grid.appendChild(b);
+  }
+  renderSlots();
+}
+function renderSlots(){
+  const grid=document.getElementById('slotGrid');
+  const title=document.getElementById('selectedTitle');
+  const dateObj=new Date(selectedDate+'T12:00:00');
+  title.textContent=dateObj.toLocaleDateString('es-US',{weekday:'long',month:'long',day:'numeric'});
+  grid.innerHTML='';
+  const byTime=new Map(monthSlots.filter(s=>s.date===selectedDate).map(s=>[s.time,s]));
+  for(let h=7;h<18;h++){
+    const time=pad(h)+':00', item=byTime.get(time);
+    const b=document.createElement('button');
+    if(!item){
+      b.className='slot available';
+      b.innerHTML='<strong>'+hmLabel(time)+'</strong><small>Disponible · tocar para bloquear</small>';
+      b.onclick=()=>blockSlot(selectedDate,time);
+    }else if(item.type==='booking'){
+      b.className='slot booked';
+      b.innerHTML='<strong>'+hmLabel(time)+' · '+esc(item.name)+'</strong><small>'+esc(item.service||'Cita')+' · '+esc(item.phone||'')+'</small>';
+      b.onclick=()=>showBooking(item);
+    }else{
+      b.className='slot blocked';
+      b.innerHTML='<strong>'+hmLabel(time)+'</strong><small>Bloqueado · '+esc(item.reason||'No disponible')+'</small>';
+      b.onclick=()=>releaseSlot(item);
+    }
+    grid.appendChild(b);
+  }
+}
+async function blockSlot(date,time){
+  const reason=prompt('¿Por qué quieres bloquear '+hmLabel(time)+'?','No disponible');
+  if(reason===null)return;
+  try{
+    await apiJson('/api/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'block',date,time,reason})});
+    await loadMonth();
+  }catch(e){alert(e.message)}
+}
+function showBooking(item){
+  const msg='Cita de '+item.name+'\n'+item.date+' · '+hmLabel(item.time)+'\nServicio: '+(item.service||'No especificado')+'\nTeléfono: '+item.phone+'\n\n¿Quieres liberar este horario?';
+  if(confirm(msg)) releaseSlot(item);
+}
+async function releaseSlot(item){
+  if(item.type==='blocked' && !confirm('¿Liberar '+hmLabel(item.time)+' del '+item.date+'?'))return;
+  try{
+    await apiJson('/api/slots',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:item.date,time:item.time})});
+    await loadMonth();
+  }catch(e){alert(e.message)}
+}
+function renderAppointments(){
+  const box=document.getElementById('appointments');
+  const rows=monthSlots.filter(s=>s.type==='booking').sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  if(!rows.length){box.innerHTML='<p class="small">No hay citas en este mes todavía.</p>';return}
+  box.innerHTML=rows.map(x=>'<div class="appt"><strong>'+esc(x.name)+' · '+hmLabel(x.time)+'</strong><small>'+esc(x.date)+' · '+esc(x.service||'Cita')+' · '+esc(x.phone)+'</small></div>').join('');
+}
+function changeMonth(n){viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+n,1);selectedDate=ymd(new Date(viewMonth.getFullYear(),viewMonth.getMonth(),1));loadMonth()}
+
+async function enableNotifications(){
+  if(!('Notification' in window)) return status('notifyStatus','Este dispositivo no admite notificaciones web.',false);
+  const p=await Notification.requestPermission();
+  status('notifyStatus',p==='granted'?'Notificaciones activadas en esta app.':'No se activaron las notificaciones.',p==='granted');
+}
+async function checkNotifications(initial){
+  const bookings=monthSlots.filter(s=>s.type==='booking'&&s.createdAt).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  if(!bookings.length)return;
+  const key='caterineLastSeenBooking';
+  let seen=localStorage.getItem(key);
+  if(!seen){localStorage.setItem(key,new Date().toISOString());return}
+  const fresh=bookings.filter(b=>new Date(b.createdAt)>new Date(seen));
+  const badge=document.getElementById('newBadge'),note=document.getElementById('newNotice');
+  if(fresh.length){
+    badge.style.display='inline-flex';badge.textContent=fresh.length;
+    const b=fresh[0];
+    note.classList.add('show');note.innerHTML='<strong>Nueva cita:</strong> '+esc(b.name)+' · '+esc(b.date)+' · '+hmLabel(b.time);
+    if(!initial && 'Notification' in window && Notification.permission==='granted'){
+      try{new Notification('Nueva cita - Caterine Magic Nails',{body:b.name+' · '+b.date+' · '+hmLabel(b.time),icon:'/caterine-app-icon.svg'})}catch(e){}
+    }
+  }
+  const newest=bookings[0]?.createdAt;if(newest)localStorage.setItem(key,newest);
+}
+
 function normalizeCalendar(v){v=(v||'').trim();const m=v.match(/src=["']([^"']+)["']/i);return m?m[1]:v}
 function fileToCompressedDataUrl(file){return new Promise((resolve,reject)=>{const img=new Image(),r=new FileReader();r.onerror=reject;r.onload=()=>{img.onload=()=>{let w=img.width,h=img.height,max=1400;if(w>max||h>max){const sc=Math.min(max/w,max/h);w=Math.round(w*sc);h=Math.round(h*sc)}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);resolve(c.toDataURL('image/jpeg',.82))};img.onerror=reject;img.src=r.result};r.readAsDataURL(file)})}
-async function refreshPhotos(){const g=document.getElementById('uploadedGallery');try{const d=await apiJson('/api/photos');g.innerHTML=(d.photos||[]).map(p=>'<img src="'+p.url+'" alt="Trabajo de Caterine" loading="lazy">').join('')}catch(e){g.innerHTML=''}}
+async function refreshPhotos(){const g=document.getElementById('uploadedGallery');try{const d=await apiJson('/api/photos?_='+Date.now());g.innerHTML=(d.photos||[]).map(p=>'<img src="'+p.url+'" alt="Trabajo de Caterine" loading="lazy">').join('')}catch(e){g.innerHTML=''}}
 async function uploadPhotos(){const files=[...document.getElementById('photoInput').files];if(!files.length)return status('photoStatus','Selecciona al menos una foto.',false);status('photoStatus','Subiendo fotos…');try{for(const f of files){const dataUrl=await fileToCompressedDataUrl(f);await apiJson('/api/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,dataUrl})})}status('photoStatus','Fotos publicadas correctamente.');document.getElementById('photoInput').value='';await refreshPhotos()}catch(e){status('photoStatus',e.message,false)}}
-async function saveCalendar(){const bookingUrl=normalizeCalendar(document.getElementById('calendarCode').value);if(!/^https?:\/\//i.test(bookingUrl))return status('calendarStatus','Pega un enlace o código válido de Google Calendar.',false);status('calendarStatus','Guardando agenda…');try{await apiJson('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingUrl})});status('calendarStatus','Agenda guardada correctamente.')}catch(e){status('calendarStatus',e.message,false)}}
+async function saveCalendar(){const bookingUrl=normalizeCalendar(document.getElementById('calendarCode').value);if(!/^https?:\/\//i.test(bookingUrl))return status('calendarStatus','Pega un enlace o código válido de Google Calendar.',false);status('calendarStatus','Guardando agenda…');try{await apiJson('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingUrl})});status('calendarStatus','Google Calendar guardado correctamente.')}catch(e){status('calendarStatus',e.message,false)}}
 let deferredInstallPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e});
 function isStandalone(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}
-async function installApp(){
-  if(isStandalone()){alert('La app ya está instalada en este teléfono.');return}
-  if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;return}
-  alert('En iPhone: toca el botón Compartir de Safari, elige “Añadir a pantalla de inicio” y después toca “Añadir”.');
-}
+async function installApp(){if(isStandalone()){alert('La app ya está instalada en este teléfono.');return}if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;return}alert('En iPhone: toca Compartir en Safari, elige “Añadir a pantalla de inicio” y luego “Añadir”.')}
 if(isStandalone()){const card=document.getElementById('installCard');if(card)card.style.display='none'}
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))}
-refreshPhotos();
+refreshPhotos();loadMonth();setInterval(()=>loadMonth(),30000);
 </script>
 </body></html>
