@@ -58,11 +58,11 @@ details summary{font-weight:900;cursor:pointer}
   <h2>Citas y disponibilidad <span id="newBadge" class="badge" style="display:none">0</span></h2>
   <p>Toca un horario libre para bloquearlo. Los horarios reservados por clientes aparecen automáticamente aquí.</p>
   <div class="row">
-    <button class="rose" type="button" onclick="enableNotifications()">Activar notificaciones</button>
-    <button class="white" type="button" onclick="loadMonth()">Actualizar</button>
+    <button class="white" type="button" onclick="loadMonth()">Actualizar agenda</button>
+    <button class="white" type="button" onclick="markNotificationsRead()">Marcar avisos como leídos</button>
   </div>
-  <div id="notifyStatus" class="status"></div>
   <div id="newNotice" class="noticeBar"></div>
+  <div id="notificationList" class="appts"></div>
 
   <div class="monthTop">
     <button class="white" type="button" onclick="changeMonth(-1)">‹</button>
@@ -121,7 +121,7 @@ async function loadMonth(){
     monthSlots=d.slots||[];
     renderCalendar();
     renderAppointments();
-    await checkNotifications(false);
+    await checkNotifications();
     status('agendaStatus','Agenda actualizada.');
   }catch(e){status('agendaStatus',e.message,false)}
 }
@@ -197,45 +197,34 @@ function renderAppointments(){
 }
 function changeMonth(n){viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+n,1);selectedDate=ymd(new Date(viewMonth.getFullYear(),viewMonth.getMonth(),1));loadMonth()}
 
-function urlBase64ToUint8Array(base64String){
-  const padding='='.repeat((4-base64String.length%4)%4);
-  const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
-  const raw=atob(base64);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
-}
-async function enableNotifications(){
-  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){
-    return status('notifyStatus','Abre la app desde el icono de Caterine en la pantalla de inicio. En Safari privado las notificaciones no funcionan.',false);
-  }
+async function checkNotifications(){
   try{
-    const p=await Notification.requestPermission();
-    if(p!=='granted') return status('notifyStatus','No se activaron las notificaciones. Puedes permitirlas desde Ajustes del iPhone.',false);
-    const reg=await navigator.serviceWorker.ready;
-    const cfg=await apiJson('/api/push');
-    let sub=await reg.pushManager.getSubscription();
-    if(!sub){
-      sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(cfg.publicKey)});
+    const d=await apiJson('/api/notifications?_='+Date.now());
+    const rows=d.notifications||[];
+    const seen=localStorage.getItem('caterineNotificationsSeenAt')||'';
+    const fresh=seen?rows.filter(n=>new Date(n.createdAt)>new Date(seen)):rows;
+    const badge=document.getElementById('newBadge');
+    const note=document.getElementById('newNotice');
+    const list=document.getElementById('notificationList');
+    if(fresh.length){
+      badge.style.display='inline-flex';
+      badge.textContent=fresh.length;
+      note.classList.add('show');
+      note.innerHTML='<strong>'+fresh.length+' aviso'+(fresh.length===1?'':'s')+' nuevo'+(fresh.length===1?'':'s')+'</strong><br>'+esc(fresh[0].message||fresh[0].title||'Nueva actualización');
+    }else{
+      badge.style.display='none';
+      note.classList.remove('show');
+      note.innerHTML='';
     }
-    await apiJson('/api/push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:sub})});
-    status('notifyStatus','Notificaciones activadas. Caterine recibirá avisos de reservas y cancelaciones.');
-  }catch(e){status('notifyStatus',e.message||'No se pudieron activar las notificaciones.',false)}
+    list.innerHTML=rows.slice(0,8).map(n=>{
+      const icon=n.kind==='cancellation'?'❌':'📅';
+      return '<div class="appt"><strong>'+icon+' '+esc(n.title||'Aviso')+'</strong><small>'+esc(n.message||'')+'</small></div>';
+    }).join('')||'<p class="small">Todavía no hay avisos.</p>';
+  }catch(e){}
 }
-async function checkNotifications(initial){
-  const bookings=monthSlots.filter(s=>s.type==='booking'&&s.createdAt).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  if(!bookings.length)return;
-  const key='caterineLastSeenBooking';
-  let seen=localStorage.getItem(key);
-  if(!seen){localStorage.setItem(key,new Date().toISOString());return}
-  const fresh=bookings.filter(b=>new Date(b.createdAt)>new Date(seen));
-  const badge=document.getElementById('newBadge'),note=document.getElementById('newNotice');
-  if(fresh.length){
-    badge.style.display='inline-flex';badge.textContent=fresh.length;
-    const b=fresh[0];
-    note.classList.add('show');note.innerHTML='<strong>Nueva cita:</strong> '+esc(b.name)+' · '+esc(b.date)+' · '+hmLabel(b.time);
-    if(!initial && 'Notification' in window && Notification.permission==='granted'){
-      try{new Notification('Nueva cita - Caterine Magic Nails',{body:b.name+' · '+b.date+' · '+hmLabel(b.time),icon:'/caterine-app-icon.svg'})}catch(e){}
-    }
-  }
-  const newest=bookings[0]?.createdAt;if(newest)localStorage.setItem(key,newest);
+function markNotificationsRead(){
+  localStorage.setItem('caterineNotificationsSeenAt',new Date().toISOString());
+  checkNotifications();
 }
 
 function normalizeCalendar(v){v=(v||'').trim();const m=v.match(/src=["']([^"']+)["']/i);return m?m[1]:v}
@@ -249,6 +238,6 @@ function isStandalone(){return window.matchMedia('(display-mode: standalone)').m
 async function installApp(){if(isStandalone()){alert('La app ya está instalada en este teléfono.');return}if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;return}alert('En iPhone: toca Compartir en Safari, elige “Añadir a pantalla de inicio” y luego “Añadir”.')}
 if(isStandalone()){const card=document.getElementById('installCard');if(card)card.style.display='none'}
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))}
-refreshPhotos();loadMonth();setInterval(()=>loadMonth(),30000);
+refreshPhotos();loadMonth();checkNotifications();setInterval(()=>{loadMonth();checkNotifications()},30000);
 </script>
 </body></html>
