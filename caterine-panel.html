@@ -46,7 +46,7 @@ button{border:0;border-radius:999px;padding:14px 20px;font-weight:900;font-size:
 .panelToggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:18px;padding:15px 18px;margin-top:12px;background:#fff;border:1px solid var(--line);color:var(--ink)}
 .panelToggle .left{display:flex;align-items:center;gap:10px}.panelToggle .chev{font-size:20px;transition:transform .2s}.panelToggle.open .chev{transform:rotate(180deg)}
 .collapse{display:none}.collapse.open{display:block}
-.noticeItem{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.noticeText{min-width:0;flex:1}.reminderBtn{flex:none;padding:10px 14px;font-size:14px;background:#25d366;color:#fff}
+.noticeItem{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.noticeText{min-width:0;flex:1}.reminderBtn{flex:none;padding:10px 14px;font-size:14px;background:#25d366;color:#fff}.noticeSelect{display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0}.noticeCheck{width:24px;height:24px;accent-color:var(--rose);margin-top:2px;flex:none}.deleteSelected{background:#a5283d;color:#fff}.deleteSelected:disabled{opacity:.45;cursor:not-allowed}
 .compactHint{margin:10px 0 0;font-size:14px;color:var(--muted)}
 details summary{font-weight:900;cursor:pointer}
 .install{display:flex;justify-content:space-between;align-items:center;gap:14px;background:linear-gradient(135deg,#2d2126,#4a323b);color:#fff}.install p{color:#eadde2;margin:5px 0 0}.install button{background:#fff;color:var(--ink);white-space:nowrap}
@@ -80,8 +80,9 @@ details summary{font-weight:900;cursor:pointer}
   <div id="notificationsPanel" class="collapse">
     <div class="row">
       <button class="white" type="button" onclick="markNotificationsRead()">Marcar avisos como leídos</button>
-      <button class="white" type="button" onclick="deleteReadNotifications()">Eliminar notificaciones leídas</button>
+      <button id="deleteSelectedBtn" class="deleteSelected" type="button" onclick="deleteSelectedNotifications()" disabled>Eliminar seleccionadas</button>
     </div>
+    <p class="compactHint">Marca con ✓ las notificaciones que quieras eliminar.</p>
     <div id="newNotice" class="noticeBar"></div>
     <div id="notificationList" class="appts"></div>
   </div>
@@ -446,11 +447,23 @@ function replacePhoto(type,key){
   input.click();
 }
 
+let selectedNotifications=new Set();
+
+function updateDeleteSelectedButton(){
+  const b=document.getElementById('deleteSelectedBtn');
+  if(!b)return;
+  const count=selectedNotifications.size;
+  b.disabled=count===0;
+  b.textContent=count?('Eliminar seleccionada'+(count===1?'':'s')+' ('+count+')'):'Eliminar seleccionadas';
+}
+
 async function checkNotifications(){
   try{
     const d=await apiJson('/api/notifications?_='+Date.now());
     const rows=d.notifications||[];
     notificationsCache=rows;
+    const valid=new Set(rows.map(n=>n._pathname).filter(Boolean));
+    selectedNotifications=new Set([...selectedNotifications].filter(x=>valid.has(x)));
     const seen=localStorage.getItem('caterineNotificationsSeenAt')||'';
     const fresh=seen?rows.filter(n=>new Date(n.createdAt)>new Date(seen)):rows;
     const badge=document.getElementById('newBadge');
@@ -467,13 +480,27 @@ async function checkNotifications(){
       note.innerHTML='';
     }
     list.innerHTML='';
-    rows.slice(0,20).forEach((n,i)=>{
+    rows.slice(0,50).forEach(n=>{
       const item=document.createElement('div');item.className='appt noticeItem';
+
+      const selectWrap=document.createElement('div');selectWrap.className='noticeSelect';
+      const check=document.createElement('input');check.type='checkbox';check.className='noticeCheck';
+      check.checked=selectedNotifications.has(n._pathname);
+      check.setAttribute('aria-label','Seleccionar notificación para eliminar');
+      check.onchange=()=>{
+        if(check.checked)selectedNotifications.add(n._pathname);
+        else selectedNotifications.delete(n._pathname);
+        updateDeleteSelectedButton();
+      };
+
       const text=document.createElement('div');text.className='noticeText';
       const strong=document.createElement('strong');
       strong.textContent=(n.kind==='cancellation'?'❌ ':'📅 ')+(n.title||'Aviso');
       const small=document.createElement('small');small.textContent=n.message||'';
-      text.append(strong,small);item.appendChild(text);
+      text.append(strong,small);
+      selectWrap.append(check,text);
+      item.appendChild(selectWrap);
+
       if(n.kind!=='cancellation' && n.phone){
         const b=document.createElement('button');b.type='button';b.className='reminderBtn';b.textContent='Recordatorio';
         b.onclick=()=>reminderWhatsApp(n);item.appendChild(b);
@@ -481,31 +508,22 @@ async function checkNotifications(){
       list.appendChild(item);
     });
     if(!rows.length) list.innerHTML='<p class="small">Todavía no hay avisos.</p>';
+    updateDeleteSelectedButton();
   }catch(e){}
 }
+
 function markNotificationsRead(){
   localStorage.setItem('caterineNotificationsSeenAt',new Date().toISOString());
   checkNotifications();
 }
-async function deleteReadNotifications(){
-  const seen=localStorage.getItem('caterineNotificationsSeenAt')||'';
-  if(!seen){alert('Primero marca los avisos como leídos.');return}
-  if(!confirm('¿Eliminar todas las notificaciones que ya marcaste como leídas?'))return;
+
+async function deleteSelectedNotifications(){
+  const paths=[...selectedNotifications];
+  if(!paths.length){alert('Marca al menos una notificación para eliminar.');return}
+  if(!confirm('¿Eliminar '+paths.length+' notificación'+(paths.length===1?'':'es')+' seleccionada'+(paths.length===1?'':'s')+'?'))return;
   try{
-    await apiJson('/api/notifications',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({before:seen})});
-    await checkNotifications();
-  }catch(e){alert(e.message)}
-}
-async function deleteReadNotifications(){
-  const seen=localStorage.getItem('caterineNotificationsSeenAt')||'';
-  if(!seen){alert('Primero marca los avisos como leídos.');return}
-  const urls=notificationsCache
-    .filter(n=>n.storageUrl&&n.createdAt&&new Date(n.createdAt)<=new Date(seen))
-    .map(n=>n.storageUrl);
-  if(!urls.length){alert('No hay notificaciones leídas para eliminar.');return}
-  if(!confirm('¿Eliminar '+urls.length+' notificación'+(urls.length===1?'':'es')+' leída'+(urls.length===1?'':'s')+'?'))return;
-  try{
-    await apiJson('/api/notifications',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({urls})});
+    await apiJson('/api/notifications',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({paths})});
+    selectedNotifications.clear();
     await checkNotifications();
   }catch(e){alert(e.message)}
 }
