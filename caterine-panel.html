@@ -60,7 +60,7 @@ details summary{font-weight:900;cursor:pointer}
 
 <div class="card">
   <div class="eyebrow">Agenda</div>
-  <h2>Citas y disponibilidad <span id="newBadge" class="badge" style="display:none">0</span></h2>
+  <h2>Citas y disponibilidad</h2>
   <p>Toca un horario libre para bloquearlo. Los horarios reservados por clientes aparecen automáticamente aquí.</p>
   <div class="row">
     <button class="white" type="button" onclick="loadMonth()">Actualizar agenda</button>
@@ -118,6 +118,13 @@ function status(id,t,ok=true){const el=document.getElementById(id);if(!el)return
 function pad(n){return String(n).padStart(2,'0')}
 function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 function hmLabel(t){const [h,m]=t.split(':').map(Number);return new Date(2000,0,1,h,m).toLocaleTimeString('es-US',{hour:'numeric',minute:'2-digit'})}
+
+function panelHoursForDate(date){
+  const day=new Date(date+'T12:00:00').getDay();
+  if(day===0)return [];
+  const close=day===6?16:19;
+  return Array.from({length:close-7},(_,i)=>7+i);
+}
 function monthKey(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)}
 function monthName(d){return d.toLocaleDateString('es-US',{month:'long',year:'numeric'})}
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -147,10 +154,12 @@ function renderCalendar(){
   for(let day=1;day<=days;day++){
     const date=ymd(new Date(y,m,day));
     const taken=monthSlots.filter(s=>s.date===date).length;
-    const available=Math.max(0,11-taken);
+    const hours=panelHoursForDate(date);
+    const available=Math.max(0,hours.length-taken);
     const b=document.createElement('button');
     b.className='day'+(date===selectedDate?' selected':'')+(date<today?' past':'');
-    b.innerHTML='<span>'+day+'</span><span class="count">'+available+' libres</span>';
+    if(!hours.length)b.disabled=true;
+    b.innerHTML='<span>'+day+'</span><span class="count">'+(hours.length?available+' libres':'Cerrado')+'</span>';
     b.onclick=()=>{selectedDate=date;renderCalendar();renderSlots()};
     grid.appendChild(b);
   }
@@ -163,7 +172,9 @@ function renderSlots(){
   title.textContent=dateObj.toLocaleDateString('es-US',{weekday:'long',month:'long',day:'numeric'});
   grid.innerHTML='';
   const byTime=new Map(monthSlots.filter(s=>s.date===selectedDate).map(s=>[s.time,s]));
-  for(let h=7;h<18;h++){
+  const hours=panelHoursForDate(selectedDate);
+  if(!hours.length){grid.innerHTML='<p class="compactHint">Cerrado los domingos.</p>';return}
+  for(const h of hours){
     const time=pad(h)+':00', item=byTime.get(time);
     const b=document.createElement('button');
     if(!item){
