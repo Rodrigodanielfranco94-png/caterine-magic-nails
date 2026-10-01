@@ -1,18 +1,27 @@
 import { list, put, del } from '@vercel/blob';
 
 const OPEN_HOUR = 7;
-const CLOSE_HOUR = 18;
+const WEEKDAY_CLOSE_HOUR = 19;
+const SATURDAY_CLOSE_HOUR = 16;
 const SLOT_MINUTES = 60;
+
+function closeHourForDate(date){
+  if(!validDate(date)) return WEEKDAY_CLOSE_HOUR;
+  const day=new Date(date+'T12:00:00').getDay();
+  if(day===0) return OPEN_HOUR;
+  return day===6 ? SATURDAY_CLOSE_HOUR : WEEKDAY_CLOSE_HOUR;
+}
 
 function parseBody(req){
   try { return typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {}); }
   catch { return {}; }
 }
 function validDate(v){ return /^\d{4}-\d{2}-\d{2}$/.test(v || ''); }
-function validTime(v){
+function validTime(v,date){
   if(!/^\d{2}:\d{2}$/.test(v || '')) return false;
   const [h,m]=v.split(':').map(Number);
-  return m===0 && h>=OPEN_HOUR && h<CLOSE_HOUR;
+  const close=closeHourForDate(date);
+  return m===0 && h>=OPEN_HOUR && h<close;
 }
 function pathnameFor(date,time){ return `caterine/slots/${date}/${time.replace(':','-')}.json`; }
 function notificationPath(kind,date,time){return `caterine/notifications/${Date.now()}-${kind}-${date}-${time.replace(':','-')}.json`;}
@@ -48,7 +57,7 @@ export default async function handler(req,res){
       rows.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
       return res.status(200).json({
         openHour:OPEN_HOUR,
-        closeHour:CLOSE_HOUR,
+        closeHour:WEEKDAY_CLOSE_HOUR,
         slotMinutes:SLOT_MINUTES,
         slots:rows
       });
@@ -59,7 +68,7 @@ export default async function handler(req,res){
       const action=body.action==='block'?'block':'book';
       const date=(body.date||'').trim();
       const time=(body.time||'').trim();
-      if(!validDate(date)||!validTime(time)) return res.status(400).json({error:'Fecha u hora inválida.'});
+      if(!validDate(date)||!validTime(time,date)) return res.status(400).json({error:'Fecha u hora fuera del horario de atención.'});
 
       const today=new Date();
       const y=today.getFullYear(),m=String(today.getMonth()+1).padStart(2,'0'),d=String(today.getDate()).padStart(2,'0');
@@ -120,7 +129,7 @@ export default async function handler(req,res){
     if(req.method==='DELETE'){
       const body=parseBody(req);
       const date=(body.date||'').trim(), time=(body.time||'').trim();
-      if(!validDate(date)||!validTime(time)) return res.status(400).json({error:'Fecha u hora inválida.'});
+      if(!validDate(date)||!validTime(time,date)) return res.status(400).json({error:'Fecha u hora fuera del horario de atención.'});
       const path=pathnameFor(date,time);
       const r=await list({prefix:path,limit:10});
       const b=(r.blobs||[]).find(x=>x.pathname===path);
