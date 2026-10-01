@@ -27,6 +27,12 @@ button{border:0;border-radius:999px;padding:14px 20px;font-weight:900;font-size:
 .rose{background:var(--rose);color:#fff}.white{background:#fff;border:1px solid var(--line);color:var(--ink)}
 .status{margin-top:14px;font-size:14px}.gallery{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:18px}
 .gallery img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px}
+.photoCard{border:1px solid var(--line);border-radius:18px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px}
+.photoCard img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:13px}
+.photoActions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.photoActions button{padding:10px 8px;font-size:12px}
+.danger{background:#fff0f2;color:#a5283d;border:1px solid #f1c5ce}
+.photoTag{font-size:11px;color:var(--muted);font-weight:800;padding:0 3px}
 .monthTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 12px}.monthTop strong{font-size:18px}.monthTop button{padding:10px 14px}
 .week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}.dow{text-align:center;font-size:11px;font-weight:800;color:var(--muted);padding:7px 0}
 .day{min-height:58px;border:1px solid var(--line);background:#fff;border-radius:14px;padding:7px 3px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;color:var(--ink)}
@@ -73,6 +79,7 @@ details summary{font-weight:900;cursor:pointer}
   <div id="notificationsPanel" class="collapse">
     <div class="row">
       <button class="white" type="button" onclick="markNotificationsRead()">Marcar avisos como leídos</button>
+      <button class="white" type="button" onclick="deleteReadNotifications()">Eliminar notificaciones leídas</button>
     </div>
     <div id="newNotice" class="noticeBar"></div>
     <div id="notificationList" class="appts"></div>
@@ -104,7 +111,8 @@ details summary{font-weight:900;cursor:pointer}
 </div>
 
 <div class="card">
-<h2>Subir fotos</h2>
+<h2>Fotos de la página web</h2>
+<p>Aquí Caterine puede ver las fotos de su web, agregar nuevas, reemplazarlas o eliminarlas.</p>
 <div class="field"><label>SELECCIONA UNA O VARIAS FOTOS</label><input id="photoInput" type="file" accept="image/*" multiple></div>
 <div class="row"><button class="rose" type="button" onclick="uploadPhotos()">Subir fotos</button><button class="white" type="button" onclick="refreshPhotos()">Actualizar galería</button></div>
 <div id="photoStatus" class="status"></div>
@@ -128,6 +136,108 @@ function panelHoursForDate(date){
 function monthKey(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)}
 function monthName(d){return d.toLocaleDateString('es-US',{month:'long',year:'numeric'})}
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+function fileToCompressedDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image(),reader=new FileReader();
+    reader.onerror=reject;
+    reader.onload=()=>{
+      img.onload=()=>{
+        let w=img.width,h=img.height,max=1400;
+        if(w>max||h>max){const s=Math.min(max/w,max/h);w=Math.round(w*s);h=Math.round(h*s)}
+        const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg',.82));
+      };
+      img.onerror=reject;img.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function uploadOnePhoto(file){
+  const dataUrl=await fileToCompressedDataUrl(file);
+  return apiJson('/api/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:file.name,dataUrl})});
+}
+async function uploadPhotos(){
+  const input=document.getElementById('photoInput');
+  const files=[...(input.files||[])];
+  if(!files.length)return status('photoStatus','Selecciona al menos una foto.',false);
+  status('photoStatus','Subiendo fotos…');
+  try{
+    for(const file of files) await uploadOnePhoto(file);
+    input.value='';
+    status('photoStatus','Fotos publicadas correctamente.');
+    await refreshPhotos();
+  }catch(e){status('photoStatus',e.message,false)}
+}
+async function getStaticWebsitePhotos(){
+  try{
+    const r=await fetch('/?_gallery_source='+Date.now(),{cache:'no-store'});
+    const html=await r.text();
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    return [...doc.querySelectorAll('img[alt^="Trabajo real de uñas de Caterine "]')].map((img,i)=>({
+      id:'static-'+(i+1),url:img.getAttribute('src')||'',kind:'static'
+    })).filter(x=>x.url);
+  }catch{return []}
+}
+async function refreshPhotos(){
+  const gallery=document.getElementById('uploadedGallery');
+  status('photoStatus','Actualizando fotos…');
+  try{
+    const [d,staticPhotos]=await Promise.all([apiJson('/api/photos?_='+Date.now()),getStaticWebsitePhotos()]);
+    const hidden=new Set(d.hiddenStatic||[]);
+    const visibleStatic=staticPhotos.filter(p=>!hidden.has(p.id));
+    const uploaded=(d.photos||[]).map(p=>({...p,kind:'uploaded'}));
+    const all=[...visibleStatic,...uploaded];
+    gallery.innerHTML='';
+    all.forEach((p,index)=>{
+      const card=document.createElement('div');card.className='photoCard';
+      const img=document.createElement('img');img.src=p.url;img.alt='Foto de Caterine Magic Nails';img.loading='lazy';
+      const tag=document.createElement('div');tag.className='photoTag';tag.textContent=p.kind==='static'?'Foto original de la web':'Foto subida por Caterine';
+      const actions=document.createElement('div');actions.className='photoActions';
+      const replace=document.createElement('button');replace.type='button';replace.className='white';replace.textContent='Reemplazar';
+      replace.onclick=()=>replaceManagedPhoto(p);
+      const remove=document.createElement('button');remove.type='button';remove.className='danger';remove.textContent='Eliminar';
+      remove.onclick=()=>deleteManagedPhoto(p);
+      actions.append(replace,remove);card.append(img,tag,actions);gallery.appendChild(card);
+    });
+    if(!all.length) gallery.innerHTML='<p class="compactHint">No hay fotos publicadas.</p>';
+    status('photoStatus',all.length+' foto'+(all.length===1?'':'s')+' en la página web.');
+  }catch(e){status('photoStatus',e.message,false)}
+}
+async function deleteManagedPhoto(photo){
+  if(!confirm('¿Eliminar esta foto de la página web?'))return;
+  status('photoStatus','Eliminando foto…');
+  try{
+    if(photo.kind==='static'){
+      await apiJson('/api/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'hideStatic',staticId:photo.id})});
+    }else{
+      await apiJson('/api/photos',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:photo.url})});
+    }
+    status('photoStatus','Foto eliminada.');
+    await refreshPhotos();
+  }catch(e){status('photoStatus',e.message,false)}
+}
+function replaceManagedPhoto(photo){
+  const picker=document.createElement('input');picker.type='file';picker.accept='image/*';picker.style.display='none';
+  picker.onchange=async()=>{
+    const file=picker.files&&picker.files[0];if(!file){picker.remove();return}
+    status('photoStatus','Reemplazando foto…');
+    try{
+      await uploadOnePhoto(file);
+      if(photo.kind==='static'){
+        await apiJson('/api/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'hideStatic',staticId:photo.id})});
+      }else{
+        await apiJson('/api/photos',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:photo.url})});
+      }
+      status('photoStatus','Foto reemplazada correctamente.');
+      await refreshPhotos();
+    }catch(e){status('photoStatus',e.message,false)}
+    picker.remove();
+  };
+  document.body.appendChild(picker);picker.click();
+}
+
 
 let viewMonth=new Date(); viewMonth.setDate(1);
 let selectedDate=ymd(new Date());
@@ -242,10 +352,12 @@ function reminderWhatsApp(n){
   window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');
 }
 
+let notificationsCache=[];
 async function checkNotifications(){
   try{
     const d=await apiJson('/api/notifications?_='+Date.now());
     const rows=d.notifications||[];
+    notificationsCache=rows;
     const seen=localStorage.getItem('caterineNotificationsSeenAt')||'';
     const fresh=seen?rows.filter(n=>new Date(n.createdAt)>new Date(seen)):rows;
     const badge=document.getElementById('newBadge');
@@ -281,6 +393,19 @@ async function checkNotifications(){
 function markNotificationsRead(){
   localStorage.setItem('caterineNotificationsSeenAt',new Date().toISOString());
   checkNotifications();
+}
+async function deleteReadNotifications(){
+  const seen=localStorage.getItem('caterineNotificationsSeenAt')||'';
+  if(!seen){alert('Primero marca los avisos como leídos.');return}
+  const urls=notificationsCache
+    .filter(n=>n.storageUrl&&n.createdAt&&new Date(n.createdAt)<=new Date(seen))
+    .map(n=>n.storageUrl);
+  if(!urls.length){alert('No hay notificaciones leídas para eliminar.');return}
+  if(!confirm('¿Eliminar '+urls.length+' notificación'+(urls.length===1?'':'es')+' leída'+(urls.length===1?'':'s')+'?'))return;
+  try{
+    await apiJson('/api/notifications',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({urls})});
+    await checkNotifications();
+  }catch(e){alert(e.message)}
 }
 
 let deferredInstallPrompt=null;
