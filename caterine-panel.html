@@ -289,15 +289,40 @@ function renderSlots(){
     const item=byTime.get(time),b=document.createElement('button');
     if(!item){b.className='slot available';b.innerHTML='<strong>'+hmLabel(time)+'</strong><small>Disponible · tocar para bloquear</small>';b.onclick=()=>blockSlot(selectedDate,time)}
     else if(item.type==='booking'){b.className='slot booked';const isStart=(item.startTime||item.time)===time;b.innerHTML='<strong>'+hmLabel(time)+(isStart?' · '+esc(item.name):'')+'</strong><small>'+(isStart?esc(item.service||'Cita')+' · hasta '+hmLabel(item.endTime||time):'Ocupado por cita')+'</small>';b.onclick=()=>showBooking(item)}
-    else{b.className='slot blocked';b.innerHTML='<strong>'+hmLabel(time)+'</strong><small>Bloqueado · '+esc(item.reason||'No disponible')+'</small>';b.onclick=()=>releaseSlot(item)}
+    else{b.className='slot blocked';b.innerHTML='<strong>'+hmLabel(time)+'</strong><small>Bloqueado · '+esc(item.reason||'No disponible')+'</small>';b.onclick=()=>manageBlockedSlot(item)}
     grid.appendChild(b);
   }
 }
 async function blockSlot(date,time){
+  const choice=prompt('¿Qué quieres hacer con '+hmLabel(time)+'?\n\nEscribe CITA para agregar una clienta\nEscribe BLOQUEAR para marcar tiempo no disponible','CITA');
+  if(!choice)return;
+  if(choice.trim().toUpperCase()==='CITA')return addManualBooking(date,time);
+  if(choice.trim().toUpperCase()!=='BLOQUEAR')return alert('Escribe CITA o BLOQUEAR.');
   const mins=prompt('¿Cuántos minutos quieres bloquear? (15, 30, 45, 60...)','15'); if(mins===null)return;
   const durationMinutes=Math.max(15,Math.round(Number(mins)/15)*15); if(!Number.isFinite(durationMinutes))return alert('Duración inválida.');
   const reason=prompt('Motivo del bloqueo','No disponible');if(reason===null)return;
-  try{await apiJson('/api/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'block',date,time,durationMinutes,reason})});await loadMonth()}catch(e){alert(e.message)}
+  try{await apiJson('/api/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'block',date,time,durationMinutes,reason})});await loadMonth();await loadNotifications()}catch(e){alert(e.message)}
+}
+async function addManualBooking(date,time,prefill={}){
+  const name=prompt('Nombre de la clienta',prefill.name||'');if(!name)return;
+  const phone=prompt('Teléfono de la clienta',prefill.phone||'');if(!phone)return;
+  const service=prompt('Servicio (ej. Soft Gel, Manicura y pedicura)',prefill.service||'');if(service===null)return;
+  const mins=prompt('Duración total en minutos (ej. 120 o 225 para 3 h 45 min)',String(prefill.durationMinutes||120));if(!mins)return;
+  const durationMinutes=Math.max(15,Math.round(Number(mins)/15)*15);if(!Number.isFinite(durationMinutes))return alert('Duración inválida.');
+  try{
+    if(prefill.bookingId)await apiJson('/api/slots',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingId:prefill.bookingId,date:prefill.date,time:prefill.time})});
+    await apiJson('/api/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'book',date,time,name,phone,service,durationMinutes,location:'studio',notes:'Cita agregada manualmente por Caterine'})});
+    await loadMonth();await loadNotifications();alert('Cita agregada correctamente.');
+  }catch(e){alert(e.message)}
+}
+async function manageBlockedSlot(item){
+  const action=prompt('Este horario está bloqueado: '+(item.reason||'No disponible')+'\n\nEscribe CITA para convertirlo en cita\nEscribe LIBERAR para dejarlo disponible','LIBERAR');
+  if(!action)return;
+  if(action.trim().toUpperCase()==='CITA'){
+    return addManualBooking(item.date,item.startTime||item.time,{bookingId:item.bookingId,date:item.date,time:item.startTime||item.time,name:(item.reason&&item.reason!=='No disponible')?item.reason:'',durationMinutes:item.durationMinutes||15});
+  }
+  if(action.trim().toUpperCase()==='LIBERAR')return releaseSlot(item);
+  alert('Escribe CITA o LIBERAR.');
 }
 async function showBooking(item){
   const start=item.startTime||item.time,end=item.endTime||'';
