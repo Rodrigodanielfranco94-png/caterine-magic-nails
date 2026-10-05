@@ -132,8 +132,8 @@ function hmLabel(t){const [h,m]=t.split(':').map(Number);return new Date(2000,0,
 function panelHoursForDate(date){
   const day=new Date(date+'T12:00:00').getDay();
   if(day===0)return [];
-  const close=day===6?16:19;
-  return Array.from({length:close-7},(_,i)=>7+i);
+  const out=[]; for(let n=7*60;n<18*60;n+=15) out.push(String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0'));
+  return out;
 }
 function monthKey(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)}
 function monthName(d){return d.toLocaleDateString('es-US',{month:'long',year:'numeric'})}
@@ -277,58 +277,48 @@ function renderCalendar(){
   }
   renderSlots();
 }
+function uniqueRecords(type){const seen=new Set();return monthSlots.filter(s=>s.type===type).filter(s=>{const k=s.bookingId||s.date+s.time;if(seen.has(k))return false;seen.add(k);return true})}
 function renderSlots(){
-  const grid=document.getElementById('slotGrid');
-  const title=document.getElementById('selectedTitle');
-  const dateObj=new Date(selectedDate+'T12:00:00');
-  title.textContent=dateObj.toLocaleDateString('es-US',{weekday:'long',month:'long',day:'numeric'});
+  const grid=document.getElementById('slotGrid'),title=document.getElementById('selectedTitle');
+  title.textContent=new Date(selectedDate+'T12:00:00').toLocaleDateString('es-US',{weekday:'long',month:'long',day:'numeric'});
   grid.innerHTML='';
-  const byTime=new Map(monthSlots.filter(s=>s.date===selectedDate).map(s=>[s.time,s]));
-  const hours=panelHoursForDate(selectedDate);
-  if(!hours.length){grid.innerHTML='<p class="compactHint">Cerrado los domingos.</p>';return}
-  for(const h of hours){
-    const time=pad(h)+':00', item=byTime.get(time);
-    const b=document.createElement('button');
-    if(!item){
-      b.className='slot available';
-      b.innerHTML='<strong>'+hmLabel(time)+'</strong><small>Disponible · tocar para bloquear</small>';
-      b.onclick=()=>blockSlot(selectedDate,time);
-    }else if(item.type==='booking'){
-      b.className='slot booked';
-      b.innerHTML='<strong>'+hmLabel(time)+' · '+esc(item.name)+'</strong><small>'+esc(item.service||'Cita')+' · '+esc(item.phone||'')+'</small>';
-      b.onclick=()=>showBooking(item);
-    }else{
-      b.className='slot blocked';
-      b.innerHTML='<strong>'+hmLabel(time)+'</strong><small>Bloqueado · '+esc(item.reason||'No disponible')+'</small>';
-      b.onclick=()=>releaseSlot(item);
-    }
+  const byTime=new Map(monthSlots.filter(s=>s.date===selectedDate).map(s=>[s.slotTime||s.time,s]));
+  const times=panelHoursForDate(selectedDate);
+  if(!times.length){grid.innerHTML='<p class="compactHint">Cerrado los domingos.</p>';return}
+  for(const time of times){
+    const item=byTime.get(time),b=document.createElement('button');
+    if(!item){b.className='slot available';b.innerHTML='<strong>'+hmLabel(time)+'</strong><small>Disponible · tocar para bloquear</small>';b.onclick=()=>blockSlot(selectedDate,time)}
+    else if(item.type==='booking'){b.className='slot booked';const isStart=(item.startTime||item.time)===time;b.innerHTML='<strong>'+hmLabel(time)+(isStart?' · '+esc(item.name):'')+'</strong><small>'+(isStart?esc(item.service||'Cita')+' · hasta '+hmLabel(item.endTime||time):'Ocupado por cita')+'</small>';b.onclick=()=>showBooking(item)}
+    else{b.className='slot blocked';b.innerHTML='<strong>'+hmLabel(time)+'</strong><small>Bloqueado · '+esc(item.reason||'No disponible')+'</small>';b.onclick=()=>releaseSlot(item)}
     grid.appendChild(b);
   }
 }
 async function blockSlot(date,time){
-  const reason=prompt('¿Por qué quieres bloquear '+hmLabel(time)+'?','No disponible');
-  if(reason===null)return;
-  try{
-    await apiJson('/api/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'block',date,time,reason})});
-    await loadMonth();
-  }catch(e){alert(e.message)}
+  const mins=prompt('¿Cuántos minutos quieres bloquear? (15, 30, 45, 60...)','15'); if(mins===null)return;
+  const durationMinutes=Math.max(15,Math.round(Number(mins)/15)*15); if(!Number.isFinite(durationMinutes))return alert('Duración inválida.');
+  const reason=prompt('Motivo del bloqueo','No disponible');if(reason===null)return;
+  try{await apiJson('/api/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'block',date,time,durationMinutes,reason})});await loadMonth()}catch(e){alert(e.message)}
 }
-function showBooking(item){
-  const msg='Cita de '+item.name+'\n'+item.date+' · '+hmLabel(item.time)+'\nServicio: '+(item.service||'No especificado')+'\nTeléfono: '+item.phone+'\n\n¿Quieres liberar este horario?';
-  if(confirm(msg)) releaseSlot(item);
+async function showBooking(item){
+  const start=item.startTime||item.time,end=item.endTime||'';
+  const action=prompt('Cita de '+item.name+'\n'+item.date+' · '+hmLabel(start)+(end?'–'+hmLabel(end):'')+'\n'+(item.service||'Cita')+'\n\nEscribe: MOVER, DURACIÓN o CANCELAR','MOVER');
+  if(!action)return;
+  if(action.toUpperCase()==='CANCELAR')return releaseSlot(item);
+  let date=item.date,time=start,durationMinutes=item.durationMinutes||120;
+  if(action.toUpperCase()==='MOVER'){date=prompt('Nueva fecha (AAAA-MM-DD)',item.date)||item.date;time=prompt('Nueva hora (ej. 17:30)',start)||start}
+  else if(action.toUpperCase()==='DURACIÓN'){const d=prompt('Nueva duración en minutos (múltiplos de 15)',String(durationMinutes));if(!d)return;durationMinutes=Math.max(15,Math.round(Number(d)/15)*15)}
+  else return;
+  try{await apiJson('/api/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update',bookingId:item.bookingId,oldDate:item.date,date,time,durationMinutes})});selectedDate=date;await loadMonth()}catch(e){alert(e.message)}
 }
 async function releaseSlot(item){
-  if(item.type==='blocked' && !confirm('¿Liberar '+hmLabel(item.time)+' del '+item.date+'?'))return;
-  try{
-    await apiJson('/api/slots',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:item.date,time:item.time})});
-    await loadMonth();
-  }catch(e){alert(e.message)}
+  if(!confirm((item.type==='booking'?'¿Cancelar esta cita completa?':'¿Liberar este bloqueo?')))return;
+  try{await apiJson('/api/slots',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookingId:item.bookingId,date:item.date,time:item.startTime||item.time})});await loadMonth()}catch(e){alert(e.message)}
 }
 function renderAppointments(){
   const box=document.getElementById('appointments');
-  const rows=monthSlots.filter(s=>s.type==='booking').sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const rows=uniqueRecords('booking').sort((a,b)=>(a.date+(a.startTime||a.time)).localeCompare(b.date+(b.startTime||b.time)));
   if(!rows.length){box.innerHTML='<p class="small">No hay citas en este mes todavía.</p>';return}
-  box.innerHTML=rows.map(x=>'<div class="appt"><strong>'+esc(x.name)+' · '+hmLabel(x.time)+'</strong><small>'+esc(x.date)+' · '+esc(x.service||'Cita')+' · '+esc(x.phone)+'</small></div>').join('');
+  box.innerHTML=rows.map(x=>'<div class="appt" onclick="showBooking(monthSlots.find(s=>s.bookingId===\''+x.bookingId+'\'))"><strong>'+esc(x.name)+' · '+hmLabel(x.startTime||x.time)+'–'+hmLabel(x.endTime||x.time)+'</strong><small>'+esc(x.date)+' · '+esc(x.service||'Cita')+' · '+esc(x.phone)+'</small></div>').join('');
 }
 function changeMonth(n){viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+n,1);selectedDate=ymd(new Date(viewMonth.getFullYear(),viewMonth.getMonth(),1));loadMonth()}
 
