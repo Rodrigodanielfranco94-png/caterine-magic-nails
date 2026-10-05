@@ -16,7 +16,7 @@
     <div class="bookFormGrid">
       <div class="field"><label>NOMBRE</label><input id="bookingName" type="text" placeholder="Tu nombre"></div>
       <div class="field"><label>TELÉFONO</label><input id="bookingPhone" type="tel" placeholder="Tu número"></div>
-      <div class="field"><label>SERVICIO</label><select id="bookingService"><option>Pedicure SPA</option><option>Extensiones en Gel</option><option>Rubber Base</option><option>Gel Overlay · Builder Gel</option><option>Gel X</option><option>Soft Gel</option><option>Press On</option><option>Semipermanente</option><option>Poly Gel</option><option>Otro / consultar</option></select></div>
+      <div class="field"><label>SERVICIO</label><select id="bookingService" onchange="bookingSelectedTime='';document.getElementById('bookingForm').classList.remove('open');renderBookingSlots()"><option>Pedicure SPA</option><option>Extensiones en Gel</option><option>Rubber Base</option><option>Gel Overlay · Builder Gel</option><option>Gel X</option><option>Soft Gel</option><option>Press On</option><option>Semipermanente</option><option>Poly Gel</option><option>Otro / consultar</option></select></div>
       <div class="field"><label>¿DÓNDE QUIERES TU CITA?</label><select id="bookingLocation" onchange="toggleBookingAddress()"><option value="studio">Voy al lugar de Caterine</option><option value="home">Quiero servicio a domicilio</option></select></div>
       <div class="field" id="bookingAddressField" style="display:none"><label>DIRECCIÓN DEL DOMICILIO</label><input id="bookingAddress" type="text" autocomplete="street-address" placeholder="Calle, número, ciudad y ZIP"></div>
       <div class="field"><label>FRECUENCIA</label><select id="bookingFrequency"><option value="once">Solo esta cita</option><option value="weekly">Semanal</option><option value="biweekly">Quincenal</option><option value="three_weeks">Cada 3 semanas</option><option value="monthly">Mensual</option></select></div>
@@ -104,63 +104,15 @@ function bYmd(d){return d.getFullYear()+'-'+bPad(d.getMonth()+1)+'-'+bPad(d.getD
 function bMonthKey(d){return d.getFullYear()+'-'+bPad(d.getMonth()+1)}
 function bTimeLabel(t){const [h,m]=t.split(':').map(Number);return new Date(2000,0,1,h,m).toLocaleTimeString('es-US',{hour:'numeric',minute:'2-digit'})}
 
-function bookingHoursForDate(date){
-  const day=new Date(date+'T12:00:00').getDay();
-  if(day===0)return [];
-  const close=day===6?16:19;
-  return Array.from({length:close-7},(_,i)=>7+i);
-}
-let bookingViewMonth=new Date();bookingViewMonth.setDate(1);
-let bookingSelectedDate=bYmd(new Date());
-let bookingMonthSlots=[];let bookingSelectedTime='';
-
-async function loadBookingMonth(){
-  try{
-    const d=await apiJson('/api/slots?month='+bMonthKey(bookingViewMonth)+'&_='+Date.now());
-    bookingMonthSlots=d.slots||[];
-    renderBookingCalendar();
-  }catch(e){
-    const s=document.getElementById('bookingStatus');if(s)s.textContent='No pudimos cargar la agenda. Intenta de nuevo.';
-  }
-}
-function renderBookingCalendar(){
-  const label=document.getElementById('bookingMonthLabel');if(!label)return;
-  label.textContent=bookingViewMonth.toLocaleDateString('es-US',{month:'long',year:'numeric'});
-  const grid=document.getElementById('bookingMonthGrid');grid.innerHTML='';
-  const y=bookingViewMonth.getFullYear(),m=bookingViewMonth.getMonth();
-  const start=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate(),today=bYmd(new Date());
-  for(let i=0;i<start;i++){const x=document.createElement('div');x.className='bookDay muted';grid.appendChild(x)}
-  for(let day=1;day<=days;day++){
-    const date=bYmd(new Date(y,m,day));
-    const taken=bookingMonthSlots.filter(s=>s.date===date).length;
-    const hours=bookingHoursForDate(date);
-    const available=Math.max(0,hours.length-taken);
-    const b=document.createElement('button');
-    b.className='bookDay'+(date===bookingSelectedDate?' selected':'')+(date<today?' past':'');
-    if(!hours.length)b.disabled=true;
-    b.innerHTML='<span>'+day+'</span><span class="count">'+(hours.length?available+' libres':'Cerrado')+'</span>';
-    b.onclick=()=>{bookingSelectedDate=date;bookingSelectedTime='';document.getElementById('bookingForm').classList.remove('open');renderBookingCalendar();renderBookingSlots()};
-    grid.appendChild(b);
-  }
-  renderBookingSlots();
-}
-function renderBookingSlots(){
-  const title=document.getElementById('bookingSelectedTitle'),grid=document.getElementById('bookingSlots');
-  if(!title||!grid)return;
-  const d=new Date(bookingSelectedDate+'T12:00:00');
-  title.textContent=d.toLocaleDateString('es-US',{weekday:'long',month:'long',day:'numeric'});
-  grid.innerHTML='';
-  const map=new Map(bookingMonthSlots.filter(s=>s.date===bookingSelectedDate).map(s=>[s.time,s]));
-  const hours=bookingHoursForDate(bookingSelectedDate);
-  if(!hours.length){grid.innerHTML='<p class="small">Cerrado los domingos.</p>';return}
-  for(const h of hours){
-    const time=bPad(h)+':00',taken=map.has(time),b=document.createElement('button');
-    b.className='bookSlot'+(taken?' taken':'');
-    b.textContent=taken?bTimeLabel(time)+' · Ocupado':bTimeLabel(time);
-    if(!taken)b.onclick=()=>chooseBookingTime(time);
-    grid.appendChild(b);
-  }
-}
+const BOOKING_DURATIONS={'Pedicure SPA':90,'Extensiones en Gel':150,'Rubber Base':90,'Gel Overlay · Builder Gel':120,'Gel X':150,'Soft Gel':120,'Press On':60,'Semipermanente':90,'Poly Gel':150,'Otro / consultar':120};
+function bookingDuration(){const s=document.getElementById('bookingService');return BOOKING_DURATIONS[s?.value]||120}
+function bookingHoursForDate(date){const day=new Date(date+'T12:00:00').getDay();if(day===0)return [];const out=[];for(let n=420;n<1080;n+=15)out.push(bPad(Math.floor(n/60))+':'+bPad(n%60));return out}
+function bToMin(t){const [h,m]=t.split(':').map(Number);return h*60+m}
+let bookingViewMonth=new Date();bookingViewMonth.setDate(1);let bookingSelectedDate=bYmd(new Date());let bookingMonthSlots=[];let bookingSelectedTime='';
+async function loadBookingMonth(){try{const d=await apiJson('/api/slots?month='+bMonthKey(bookingViewMonth)+'&_='+Date.now());bookingMonthSlots=d.slots||[];renderBookingCalendar()}catch(e){const s=document.getElementById('bookingStatus');if(s)s.textContent='No pudimos cargar la agenda. Intenta de nuevo.'}}
+function canStart(date,time){const duration=bookingDuration(),st=bToMin(time);if(st+duration>1080)return false;const busy=new Set(bookingMonthSlots.filter(s=>s.date===date).map(s=>s.slotTime||s.time));for(let n=st;n<st+duration;n+=15){const t=bPad(Math.floor(n/60))+':'+bPad(n%60);if(busy.has(t))return false}return true}
+function renderBookingCalendar(){const label=document.getElementById('bookingMonthLabel');if(!label)return;label.textContent=bookingViewMonth.toLocaleDateString('es-US',{month:'long',year:'numeric'});const grid=document.getElementById('bookingMonthGrid');grid.innerHTML='';const y=bookingViewMonth.getFullYear(),m=bookingViewMonth.getMonth(),first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate(),today=bYmd(new Date());for(let i=0;i<first;i++){const x=document.createElement('div');x.className='bookDay muted';grid.appendChild(x)}for(let day=1;day<=days;day++){const date=bYmd(new Date(y,m,day)),times=bookingHoursForDate(date),available=times.filter(t=>canStart(date,t)).length,b=document.createElement('button');b.className='bookDay'+(date===bookingSelectedDate?' selected':'')+(date<today?' past':'');if(!times.length)b.disabled=true;b.innerHTML='<span>'+day+'</span><span class="count">'+(times.length?available+' inicios':'Cerrado')+'</span>';b.onclick=()=>{bookingSelectedDate=date;bookingSelectedTime='';document.getElementById('bookingForm').classList.remove('open');renderBookingCalendar();renderBookingSlots()};grid.appendChild(b)}renderBookingSlots()}
+function renderBookingSlots(){const title=document.getElementById('bookingSelectedTitle'),grid=document.getElementById('bookingSlots');if(!title||!grid)return;title.textContent=new Date(bookingSelectedDate+'T12:00:00').toLocaleDateString('es-US',{weekday:'long',month:'long',day:'numeric'});grid.innerHTML='';const times=bookingHoursForDate(bookingSelectedDate);if(!times.length){grid.innerHTML='<p class="small">Cerrado los domingos.</p>';return}const duration=bookingDuration();for(const time of times){const ok=canStart(bookingSelectedDate,time),b=document.createElement('button');b.className='bookSlot'+(ok?'':' taken');b.textContent=ok?bTimeLabel(time):bTimeLabel(time)+' · No disponible';if(ok)b.onclick=()=>chooseBookingTime(time);grid.appendChild(b)}const hint=document.createElement('p');hint.className='small';hint.style.gridColumn='1/-1';hint.textContent='Horarios cada 15 minutos · duración estimada: '+Math.floor(duration/60)+' h '+(duration%60?duration%60+' min':'');grid.appendChild(hint)}
 function chooseBookingTime(time){
   bookingSelectedTime=time;
   const form=document.getElementById('bookingForm');form.classList.add('open');
@@ -253,7 +205,7 @@ async function submitBooking(){
   if(location==='home'&&!address){st.textContent='Escribe la dirección para el servicio a domicilio.';st.style.color='#9b2f3d';return}
   st.textContent='Confirmando disponibilidad…';st.style.color='var(--muted)';
   try{
-    const d=await apiJson('/api/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'book',date:bookingSelectedDate,time:bookingSelectedTime,name,phone,service,location,address,frequency,notes})});
+    const d=await apiJson('/api/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'book',date:bookingSelectedDate,time:bookingSelectedTime,name,phone,service,durationMinutes:bookingDuration(),location,address,frequency,notes})});
     const success=document.getElementById('bookingSuccess');
     success.classList.add('show');
     const locationLabel=location==='home'?'Servicio a domicilio':'En el lugar de Caterine';
