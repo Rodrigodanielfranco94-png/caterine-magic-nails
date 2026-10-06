@@ -43,7 +43,7 @@ async function createBooking(body){
   const name=String(body.name||'').trim().slice(0,80),phone=String(body.phone||'').trim().slice(0,40),service=String(body.service||'').trim().slice(0,80);
   if(!name||!phone)throw Object.assign(new Error('Escribe nombre y teléfono.'),{status:400});
   const bookingId=body.bookingId||('bk_'+Date.now()+'_'+Math.random().toString(36).slice(2,8));
-  const record={type:'booking',bookingId,date,time,startTime:time,durationMinutes,endTime:toTime(toMin(time)+durationMinutes),name,phone,service,location:body.location==='home'?'home':'studio',address:String(body.address||'').trim().slice(0,220),frequency:body.frequency||'once',notes:String(body.notes||'').trim().slice(0,500),createdAt:body.createdAt||new Date().toISOString(),status:'confirmed'};
+  const record={type:'booking',bookingId,date,time,startTime:time,durationMinutes,endTime:toTime(toMin(time)+durationMinutes),name,phone,service,location:'studio',address:'',frequency:body.frequency||'once',notes:String(body.notes||'').trim().slice(0,500),createdAt:body.createdAt||new Date().toISOString(),status:'confirmed'};
   const written=[];
   try{
     for(const slotTime of times){const p=pathFor(date,slotTime);await put(p,JSON.stringify({...record,slotTime}),{access:'public',addRandomSuffix:false,allowOverwrite:false,contentType:'application/json',cacheControlMaxAge:0});written.push(p)}
